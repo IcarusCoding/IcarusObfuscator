@@ -18,6 +18,7 @@
         <module>IcarusObfuscatorAPI</module>
         <module>IcarusObfuscatorCore</module>
         <module>IcarusObfuscatorMavenPlugin</module>
+        <module>testjar</module>
     </modules>
 
 </project>

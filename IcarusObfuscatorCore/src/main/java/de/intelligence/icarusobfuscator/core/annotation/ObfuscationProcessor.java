@@ -19,6 +19,4 @@ public @interface ObfuscationProcessor {
 
     JavaVersion minVersion() default JavaVersion.JAVA_1_1;
 
-    //TODO add minimum java version
-
 }
