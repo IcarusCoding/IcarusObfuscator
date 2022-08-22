@@ -17,7 +17,7 @@ public final class JarUtil {
     public static JarFile validate(File jarInput) {
         try (PushbackInputStream jarIn = new PushbackInputStream(new FileInputStream(jarInput), 2)) {
             final byte[] magic = jarIn.readNBytes(2);
-            if (magic.length < 3 || magic[0] != Constants.JAR_MAGIC[0] || magic[1] != Constants.JAR_MAGIC[1]) {
+            if (magic.length < 2 || magic[0] != Constants.JAR_MAGIC[0] || magic[1] != Constants.JAR_MAGIC[1]) {
                 throw new ClassPathException("Provided file \"" + jarInput.getAbsolutePath() + "\" is not a valid jar file");
             }
             jarIn.unread(magic);
