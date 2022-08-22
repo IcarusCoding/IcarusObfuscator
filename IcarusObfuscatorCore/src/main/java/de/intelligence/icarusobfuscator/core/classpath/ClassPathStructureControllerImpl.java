@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import de.intelligence.icarusobfuscator.core.settings.ISettingsProvider;
 import org.objectweb.asm.tree.ClassNode;
 
 import de.intelligence.icarusobfuscator.core.Constants;
@@ -24,8 +25,8 @@ public final class ClassPathStructureControllerImpl implements IClassPathStructu
 
     private ClassPath classPath;
 
-    public ClassPathStructureControllerImpl(ObfuscatorSettings settings, IClassPathProvider provider) {
-        this.settings = settings;
+    public ClassPathStructureControllerImpl(ISettingsProvider settings, IClassPathProvider provider) {
+        this.settings = settings.provideSettings();
         this.provider = provider;
         this.classes = new HashMap<>();
     }
