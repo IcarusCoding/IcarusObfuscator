@@ -1,6 +1,9 @@
 package de.intelligence.icarusobfuscator.core.settings;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.stream.MalformedJsonException;
 import de.intelligence.icarusobfuscator.core.exception.SettingsException;
 
 import java.io.File;
@@ -29,6 +32,11 @@ public class JsonSettingsProvider implements ISettingsProvider {
 
     @Override
     public ObfuscatorSettings provideSettings() {
-        return gson.fromJson(input, ObfuscatorSettings.class);
+        //todo filter fields that have no annotation
+        try {
+            return gson.fromJson(input, ObfuscatorSettings.class);
+        } catch (JsonParseException e) {
+            throw new SettingsException("Config from input could not be read", e);
+        }
     }
 }
