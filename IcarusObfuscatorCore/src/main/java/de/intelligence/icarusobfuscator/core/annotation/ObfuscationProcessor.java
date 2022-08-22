@@ -1,5 +1,7 @@
 package de.intelligence.icarusobfuscator.core.annotation;
 
+import de.intelligence.icarusobfuscator.core.utils.JavaVersion;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -14,6 +16,8 @@ public @interface ObfuscationProcessor {
     String description() default "";
 
     int priority() default 0;
+
+    JavaVersion minVersion() default JavaVersion.JAVA_1_1;
 
     //TODO add minimum java version
 
