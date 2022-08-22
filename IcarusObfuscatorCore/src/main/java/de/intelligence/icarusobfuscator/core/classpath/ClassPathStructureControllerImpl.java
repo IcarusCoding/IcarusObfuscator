@@ -8,11 +8,13 @@ import java.util.stream.Collectors;
 
 import org.objectweb.asm.tree.ClassNode;
 
+import de.intelligence.icarusobfuscator.core.Constants;
 import de.intelligence.icarusobfuscator.core.IIcarusObfuscator;
 import de.intelligence.icarusobfuscator.core.classpath.state.ClassState;
 import de.intelligence.icarusobfuscator.core.classpath.state.ClassStateType;
 import de.intelligence.icarusobfuscator.core.provider.IClassPathProvider;
 import de.intelligence.icarusobfuscator.core.settings.ObfuscatorSettings;
+import de.intelligence.icarusobfuscator.core.utils.Converters;
 
 public final class ClassPathStructureControllerImpl implements IClassPathStructureController {
 
@@ -46,7 +48,20 @@ public final class ClassPathStructureControllerImpl implements IClassPathStructu
                         ClassStateType.SOURCE : ClassStateType.LIBRARY));
             }
         }
-
+        if (!duplicates.isEmpty()) {
+            if (this.settings.isAllowDuplicatesInClassPath()) {
+                IIcarusObfuscator.LOG.warn(Constants.SPACER);
+                IIcarusObfuscator.LOG.warn("Found {} duplicate classes in the classpath:", duplicates.size());
+                duplicates.forEach(node -> IIcarusObfuscator.LOG.warn("\t- {}", Converters.convertInternalToPackage(node.name)));
+                IIcarusObfuscator.LOG.warn(Constants.SPACER);
+            } else {
+                throw new IllegalStateException(String.format("Found %s duplicate classes in classpath: %s",
+                        duplicates.size(), duplicates.stream().map(cn -> Converters.convertInternalToPackage(cn.name)).collect(Collectors.joining(", "))));
+            }
+        }
+        IIcarusObfuscator.LOG.info("Loaded {} classes and {} resources from {} directories in {}ms",
+                this.classes.size(), this.classPath.resources().size(), this.classPath.directories().size(),
+                System.currentTimeMillis() - millis);
     }
 
 }
