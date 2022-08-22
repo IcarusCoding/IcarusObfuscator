@@ -1,8 +1,14 @@
 package de.intelligence.icarusobfuscator.core.settings;
 
+import de.intelligence.icarusobfuscator.core.annotation.ConfigValue;
+
+import java.net.URL;
+
 public final class ObfuscatorSettings {
 
-    private boolean allowDuplicatesInClassPath = false;
+    @ConfigValue
+    private Boolean allowDuplicatesInClassPath = true;
+    @ConfigValue
     private String owner = "de\\/uol\\/swp.*";
 
     public boolean isAllowDuplicatesInClassPath() {
