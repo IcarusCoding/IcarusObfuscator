@@ -72,4 +72,9 @@ public final class JarFileClassPathProvider implements IClassPathProvider {
         return new ClassPath(directories, classes, resources);
     }
 
+    @Override
+    public String getSource() {
+        return this.jarInput.getAbsolutePath();
+    }
+
 }

@@ -6,4 +6,6 @@ public interface IClassPathProvider {
 
     ClassPath provide();
 
+    String getSource();
+
 }
