@@ -1,8 +1,13 @@
 package de.intelligence.icarusobfuscator.core.gen;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -16,6 +21,7 @@ public final class MethodGenerator {
     private final String name;
     private final String descriptor;
     private final Type[] arguments;
+    private final Map<Integer, Label> labels;
 
     public MethodGenerator(MethodVisitor methodVisitor, int access, String name, String descriptor) {
         this.methodVisitor = methodVisitor;
@@ -23,6 +29,7 @@ public final class MethodGenerator {
         this.name = name;
         this.descriptor = descriptor;
         this.arguments = Type.getArgumentTypes(this.descriptor);
+        this.labels = new HashMap<>();
     }
 
     public void loadImplicitSelfReference() {
@@ -99,6 +106,18 @@ public final class MethodGenerator {
         this.methodVisitor.visitFieldInsn(Opcodes.PUTSTATIC, owner, name, descriptor);
     }
 
+    public void getStaticField(String owner, String name, Class<?> fieldType) {
+        this.getStaticField(owner, name, Type.getDescriptor(fieldType));
+    }
+
+    public void getStaticField(Class<?> owner, String name, Class<?> fieldType) {
+        this.getStaticField(Type.getInternalName(owner), name, Type.getDescriptor(fieldType));
+    }
+
+    public void getStaticField(String owner, String name, String descriptor) {
+        this.methodVisitor.visitFieldInsn(Opcodes.GETSTATIC, owner, name, descriptor);
+    }
+
     public void createArray(Class<?> type) {
         final Type t = Type.getType(type);
         final int i = switch (t.getSort()) {
@@ -146,12 +165,40 @@ public final class MethodGenerator {
         this.methodVisitor.visitInsn(Type.getType(type).getOpcode(Opcodes.IASTORE));
     }
 
+    public void localStoreAndLoad(Class<?> type, int index) {
+        this.localStore(type, index);
+        this.localLoad(type, index);
+    }
+
     public void localStore(Class<?> type, int index) {
         this.methodVisitor.visitVarInsn(Type.getType(type).getOpcode(Opcodes.ISTORE), index);
     }
 
     public void localLoad(Class<?> type, int index) {
         this.methodVisitor.visitVarInsn(Type.getType(type).getOpcode(Opcodes.ILOAD), index);
+    }
+
+    public int createLabel() {
+        final int index = this.labels.size();
+        this.labels.put(index, new Label());
+        return index;
+    }
+
+    public void label(int labelIndex) {
+        this.validateLabel(labelIndex);
+        this.methodVisitor.visitLabel(this.labels.get(labelIndex));
+    }
+
+    public void jumpIfNonNull(int labelIndex) {
+        this.jump(Opcodes.IFNONNULL, labelIndex);
+    }
+
+    public void jumpIfNotEqual(int labelIndex) {
+        this.jump(Opcodes.IFNE, labelIndex);
+    }
+
+    public void pushArrayLength() {
+        this.methodVisitor.visitInsn(Opcodes.ARRAYLENGTH);
     }
 
     public void ret() {
@@ -161,6 +208,17 @@ public final class MethodGenerator {
     public void finish() {
         this.methodVisitor.visitMaxs(0, 0);
         this.methodVisitor.visitEnd();
+    }
+
+    private void jump(int opcode, int labelIndex) {
+        this.validateLabel(labelIndex);
+        this.methodVisitor.visitJumpInsn(opcode, this.labels.get(labelIndex));
+    }
+
+    private void validateLabel(int labelIndex) {
+        if (labelIndex >= this.labels.size()) {
+            throw new IllegalArgumentException("Invalid label index specified (" + labelIndex + ")");
+        }
     }
 
 }

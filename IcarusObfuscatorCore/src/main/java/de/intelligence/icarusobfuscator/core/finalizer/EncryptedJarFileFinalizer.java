@@ -1,9 +1,14 @@
 package de.intelligence.icarusobfuscator.core.finalizer;
 
+import javax.crypto.Cipher;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.jar.JarEntry;
 
@@ -114,11 +119,43 @@ public final class EncryptedJarFileFinalizer extends SimpleJarFileFinalizer {
         loadClassMethodGenerator.stackPush('.');
         loadClassMethodGenerator.stackPush('/');
         loadClassMethodGenerator.callVirtual(String.class, "replace", String.class, char.class, char.class);
-        loadClassMethodGenerator.stackPush(Constants.CLASS_SUFFIX);
+        loadClassMethodGenerator.stackPush(".class");
         loadClassMethodGenerator.callVirtual(String.class, "concat", String.class, String.class);
         loadClassMethodGenerator.callSuper(ClassLoader.class, "getResource", URL.class, String.class);
-        loadClassMethodGenerator.localStore(URL.class, 3);
+        loadClassMethodGenerator.localStoreAndLoad(URL.class, 3);
+        final int endURLNullCheckLbl = loadClassMethodGenerator.createLabel();
+        loadClassMethodGenerator.jumpIfNonNull(endURLNullCheckLbl);
+        loadClassMethodGenerator.loadImplicitSelfReference();
+        loadClassMethodGenerator.loadArguments(0, 1);
+        loadClassMethodGenerator.callSuper(URLClassLoader.class, "loadClass", Class.class, String.class, boolean.class);
+        loadClassMethodGenerator.ret();
+        loadClassMethodGenerator.label(endURLNullCheckLbl);
         loadClassMethodGenerator.localLoad(URL.class, 3);
+        loadClassMethodGenerator.callVirtual(URL.class, "openStream", InputStream.class);
+        loadClassMethodGenerator.localStoreAndLoad(InputStream.class, 4);
+        loadClassMethodGenerator.getStaticField(classGenerator.getInternalClassName(), magicName, byte[].class);
+        loadClassMethodGenerator.pushArrayLength();
+        loadClassMethodGenerator.callVirtual(InputStream.class, "loadNBytes", byte[].class, int.class);
+        loadClassMethodGenerator.getStaticField(classGenerator.getInternalClassName(), magicName, byte[].class);
+        loadClassMethodGenerator.callStatic(Arrays.class, "equals", boolean.class, byte[].class, byte[].class);
+        final int endArrayEqualsCheckLbl = loadClassMethodGenerator.createLabel();
+        loadClassMethodGenerator.jumpIfNotEqual(endArrayEqualsCheckLbl); // TODO validate
+        loadClassMethodGenerator.loadImplicitSelfReference();
+        loadClassMethodGenerator.loadArguments(0, 1);
+        loadClassMethodGenerator.callSuper(URLClassLoader.class, "loadClass", Class.class, String.class, boolean.class);
+        loadClassMethodGenerator.ret(); //TODO close input stream
+        loadClassMethodGenerator.label(endArrayEqualsCheckLbl);
+        loadClassMethodGenerator.stackPush("AES/GCM/NoPadding");
+        loadClassMethodGenerator.callStatic(Cipher.class, "getInstance", Cipher.class, String.class);
+        loadClassMethodGenerator.localStore(Cipher.class, 5);
+        loadClassMethodGenerator.localLoad(InputStream.class, 4);
+        loadClassMethodGenerator.stackPush(12);
+        loadClassMethodGenerator.callVirtual(InputStream.class, "readNBytes", byte[].class, int.class);
+        loadClassMethodGenerator.localStore(byte[].class, 6);
+        loadClassMethodGenerator.stackPush(4);
+        loadClassMethodGenerator.callStatic(ByteBuffer.class, "allocate", ByteBuffer.class, int.class);
+        loadClassMethodGenerator.getStaticField(ByteOrder.class, "LITTLE_ENDIAN", ByteOrder.class);
+        loadClassMethodGenerator.callVirtual(ByteBuffer.class, "order", ByteBuffer.class, ByteOrder.class);
         loadClassMethodGenerator.loadNullReference();
         // End loadClass method call
         loadClassMethodGenerator.ret();
