@@ -1,24 +1,23 @@
 package de.intelligence.icarusobfuscator.core.finalizer;
 
-import java.io.OutputStream;
-
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 
 import de.intelligence.icarusobfuscator.core.classpath.ClassPathEntry;
+import de.intelligence.icarusobfuscator.core.overwrites.UnloadedClasspathStackMapFramesClassWriter;
 
 public class SimpleJarFileFinalizer extends AbstractJarFileFinalizer {
 
-    protected static final int ASM_FLAGS = Opcodes.ASM9 | ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS;
+    private final int flags;
 
-    public SimpleJarFileFinalizer(String destination, OutputStream outputStream, Method method, CompressionLevel compressionLevel) {
-        super(destination, outputStream, method, compressionLevel);
+    public SimpleJarFileFinalizer(int flags, String destination, Method method, CompressionLevel compressionLevel) {
+        super(destination, method, compressionLevel);
+        this.flags = flags;
     }
 
     @Override
     protected byte[] generateClassBytes(ClassPathEntry<ClassNode> classEntry) {
-        final ClassWriter classWriter = new ClassWriter(SimpleJarFileFinalizer.ASM_FLAGS);
+        final ClassWriter classWriter = new UnloadedClasspathStackMapFramesClassWriter(super.classPath, flags);
         classEntry.source().accept(classWriter);
         return classWriter.toByteArray();
     }

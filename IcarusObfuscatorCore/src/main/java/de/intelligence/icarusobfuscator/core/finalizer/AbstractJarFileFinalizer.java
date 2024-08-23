@@ -1,8 +1,8 @@
 package de.intelligence.icarusobfuscator.core.finalizer;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Comparator;
 import java.util.jar.JarEntry;
 import java.util.zip.Deflater;
@@ -13,6 +13,7 @@ import org.objectweb.asm.tree.ClassNode;
 import de.intelligence.icarusobfuscator.core.Constants;
 import de.intelligence.icarusobfuscator.core.classpath.ClassPath;
 import de.intelligence.icarusobfuscator.core.classpath.ClassPathEntry;
+import de.intelligence.icarusobfuscator.core.exception.FinalizerException;
 import de.intelligence.icarusobfuscator.core.utils.ImmutablePair;
 
 public abstract class AbstractJarFileFinalizer implements IFinalizer {
@@ -22,10 +23,15 @@ public abstract class AbstractJarFileFinalizer implements IFinalizer {
     protected final Method method;
     protected final CompressionLevel compressionLevel;
 
-    protected AbstractJarFileFinalizer(String destination, OutputStream outputStream, Method method,
-                                       CompressionLevel compressionLevel) {
+    protected ClassPath classPath;
+
+    protected AbstractJarFileFinalizer(String destination, Method method, CompressionLevel compressionLevel) {
         this.destination = destination;
-        this.outputStream = new ZipOutputStream(outputStream);
+        try {
+            this.outputStream = new ZipOutputStream(new FileOutputStream(destination));
+        } catch (FileNotFoundException ex) {
+            throw new FinalizerException("Failed to create file output stream: ", ex);
+        }
         this.method = method;
         this.compressionLevel = compressionLevel;
     }
@@ -34,9 +40,10 @@ public abstract class AbstractJarFileFinalizer implements IFinalizer {
 
     @Override
     public void doFinalize(ClassPath classPath) {
+        this.classPath = classPath;
         try (this.outputStream) {
-            outputStream.setMethod(this.method.getValue());
-            outputStream.setLevel(this.compressionLevel.getValue());
+            this.outputStream.setMethod(this.method.getValue());
+            this.outputStream.setLevel(this.compressionLevel.getValue());
             for (final String dir : classPath.directories().stream().sorted(Comparator.comparing(String::length)).toList()) {
                 final JarEntry entry = this.handleDirectory(dir);
                 if (entry != null) {

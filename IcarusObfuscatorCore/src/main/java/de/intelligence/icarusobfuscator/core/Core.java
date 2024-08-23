@@ -1,10 +1,7 @@
-package de.intelligence.icarusobfuscator.core.finalizer;
+package de.intelligence.icarusobfuscator.core;
 
 import javax.crypto.Cipher;
-import javax.crypto.CipherOutputStream;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
-import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -14,94 +11,36 @@ import java.nio.ByteOrder;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.jar.JarEntry;
-import java.util.stream.IntStream;
 
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.commons.GeneratorAdapter;
+import org.objectweb.asm.util.CheckClassAdapter;
 
-import de.intelligence.icarusobfuscator.core.Constants;
-import de.intelligence.icarusobfuscator.core.IIcarusObfuscator;
-import de.intelligence.icarusobfuscator.core.classpath.ClassPathEntry;
-import de.intelligence.icarusobfuscator.core.classpath.ManifestContext;
-import de.intelligence.icarusobfuscator.core.exception.FinalizerException;
+import de.intelligence.icarusobfuscator.core.classpath.ClassPath;
+import de.intelligence.icarusobfuscator.core.finalizer.AbstractJarFileFinalizer;
+import de.intelligence.icarusobfuscator.core.finalizer.EncryptedJarFileFinalizer;
+import de.intelligence.icarusobfuscator.core.finalizer.IFinalizer;
 import de.intelligence.icarusobfuscator.core.gen.ClassGenerator;
 import de.intelligence.icarusobfuscator.core.gen.GeneratorUtils;
 import de.intelligence.icarusobfuscator.core.gen.MethodGenerator;
-import de.intelligence.icarusobfuscator.core.utils.Converters;
-import de.intelligence.icarusobfuscator.core.utils.ImmutablePair;
+import de.intelligence.icarusobfuscator.core.provider.IClassPathProvider;
+import de.intelligence.icarusobfuscator.core.provider.JarFileClassPathProvider;
+import de.intelligence.icarusobfuscator.core.settings.ObfuscatorSettings;
 
-public final class EncryptedJarFileFinalizer extends SimpleJarFileFinalizer {
+public final class Core {
 
-    private final SecureRandom secureRandom;
-    private final byte[] key;
-    private String realMainClass;
+    //Possible fernflower vulnerability: add jump nonnull/null to label but dont add else code
 
-    public EncryptedJarFileFinalizer(int flags, String destination, Method method, CompressionLevel compressionLevel,
-                                     SecureRandom secureRandom) {
-        super(flags, destination, method, compressionLevel);
-        this.secureRandom = secureRandom;
-        this.key = new byte[Constants.AES_KEY_SIZE];
-        this.secureRandom.nextBytes(this.key);
-    }
+    public static void madin(String[] args) throws IOException {
+        final String name = "AllahuAkbar";
+        final String fieldName = "key";
+        final String magicName = "ICARUS_MAGIC";
 
-    @Override
-    protected byte[] generateClassBytes(ClassPathEntry<ClassNode> classEntry) {
-        return this.encryptClassBytes(classEntry);
-    }
-
-    private byte[] encryptClassBytes(ClassPathEntry<ClassNode> classEntry) {
-        final byte[] iv = new byte[Constants.GCM_IV_SIZE];
-        this.secureRandom.nextBytes(iv);
-        final byte[] hashArr = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
-                .putInt(classEntry.name().hashCode()).array();
-        final ByteArrayOutputStream classOut = new ByteArrayOutputStream();
-        try {
-            classOut.write(Constants.ICARUS_MAGIC);
-            classOut.write(iv);
-            IntStream.range(0, iv.length).forEach(i -> iv[i] = (byte) (iv[i] ^ hashArr[i % hashArr.length]));
-            final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(this.key, "AES"), new GCMParameterSpec(128, iv));
-            final CipherOutputStream cipherOut = new CipherOutputStream(classOut, cipher);
-            cipherOut.write(super.generateClassBytes(classEntry));
-            cipherOut.close();
-            return classOut.toByteArray();
-        } catch (Exception ex) {
-            throw new FinalizerException("An error occurred while trying to encrypt class " +
-                    Converters.convertInternalToPackage(classEntry.name()), ex);
-        }
-    }
-
-    @Override
-    protected ImmutablePair<JarEntry, byte[]> handleResource(ClassPathEntry<byte[]> resourceEntry) {
-        if (resourceEntry.name().equals(Constants.MANIFEST)) {
-            final ManifestContext ctx = new ManifestContext(resourceEntry);
-            this.realMainClass = ctx.getMainClass();
-            // TODO replace main class
-
-        }
-        return super.handleResource(resourceEntry);
-    }
-
-    @Override
-    protected void finish() throws IOException {
-        String name = ""; // TODO generate unique name (also needed for handleResource above)
-        final JarEntry entry = new JarEntry(name);
-        final ClassGenerator generator = new ClassGenerator(Opcodes.ACC_PUBLIC, name, URLClassLoader.class);
-        this.generateDecryptionClass(generator);
-        super.addEntry(entry, generator.toByteArray());
-        IIcarusObfuscator.LOG.info(Constants.SPACER);
-        IIcarusObfuscator.LOG.info("[{}] Generated key for decryption: {}", this.getClass().getSimpleName(),
-                Base64.getEncoder().encode(this.key));
-        IIcarusObfuscator.LOG.info(Constants.SPACER);
-        this.secureRandom.nextBytes(this.key);
-    }
-
-    private void generateDecryptionClass(ClassGenerator classGenerator) {
-        final String fieldName = ""; //TODO
-        final String magicName = ""; // TODO
         final byte[] magic = new byte[]{73, 67, 65, 82, 85, 83};
 
+        final ClassGenerator classGenerator = new ClassGenerator(Opcodes.ACC_PUBLIC, name, URLClassLoader.class);
         // Create key field
         classGenerator.generateField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, fieldName, byte[].class);
         // Create magic field
@@ -150,7 +89,6 @@ public final class EncryptedJarFileFinalizer extends SimpleJarFileFinalizer {
         mainMethodGenerator.finish();
 
         classGenerator.finish();
-
         // Override loadClass method
         final MethodGenerator loadClassMethodGenerator = classGenerator.generateMethod(Opcodes.ACC_PUBLIC, "loadClass",
                 GeneratorUtils.generateExceptions(ClassNotFoundException.class), Class.class, String.class, boolean.class);
@@ -179,7 +117,7 @@ public final class EncryptedJarFileFinalizer extends SimpleJarFileFinalizer {
         loadClassMethodGenerator.getStaticField(classGenerator.getInternalClassName(), magicName, byte[].class);
         loadClassMethodGenerator.callStatic(Arrays.class, "equals", boolean.class, byte[].class, byte[].class);
         final int endArrayEqualsCheckLbl = loadClassMethodGenerator.createLabel();
-        loadClassMethodGenerator.jumpIfNotEqual(endArrayEqualsCheckLbl);
+        loadClassMethodGenerator.jumpIfNotEqual(endArrayEqualsCheckLbl); // TODO validate
         loadClassMethodGenerator.loadImplicitSelfReference();
         loadClassMethodGenerator.loadArguments(0, 1);
         loadClassMethodGenerator.callSuper(URLClassLoader.class, "loadClass", Class.class, String.class, boolean.class);
@@ -196,10 +134,54 @@ public final class EncryptedJarFileFinalizer extends SimpleJarFileFinalizer {
         loadClassMethodGenerator.callStatic(ByteBuffer.class, "allocate", ByteBuffer.class, int.class);
         loadClassMethodGenerator.getStaticField(ByteOrder.class, "LITTLE_ENDIAN", ByteOrder.class);
         loadClassMethodGenerator.callVirtual(ByteBuffer.class, "order", ByteBuffer.class, ByteOrder.class);
+        loadClassMethodGenerator.loadArguments(0, 0);
+        loadClassMethodGenerator.stackPush('.');
+        loadClassMethodGenerator.callVirtual(String.class, "lastIndexOf", int.class, int.class);
+        loadClassMethodGenerator.stackPush(1);
+        loadClassMethodGenerator.add(int.class);
+        loadClassMethodGenerator.callVirtual(String.class, "substring", String.class, int.class);
+        loadClassMethodGenerator.callVirtual(String.class, "hashCode", int.class);
+        loadClassMethodGenerator.callVirtual(ByteBuffer.class, "putInt", ByteBuffer.class, int.class);
+        loadClassMethodGenerator.callVirtual(ByteBuffer.class, "array", byte[].class);
+        loadClassMethodGenerator.localStore(byte[].class, 7);
+        loadClassMethodGenerator.stackPush(0);
+        loadClassMethodGenerator.localStoreAndLoad(int.class, 8);
+        loadClassMethodGenerator.localLoad(byte[].class, 6);
+        loadClassMethodGenerator.pushArrayLength();
+
         loadClassMethodGenerator.loadNullReference();
         // End loadClass method call
         loadClassMethodGenerator.ret();
         loadClassMethodGenerator.finish();
+
+        byte[] arr = classGenerator.toByteArray();
+        FileOutputStream outputStream = new FileOutputStream("C:\\Users\\Master\\Desktop\\AllahuAkbar.class");
+        outputStream.write(arr);
+        outputStream.flush();
+        outputStream.close();
+        ClassReader reader = new ClassReader(arr);
+        reader.accept(new CheckClassAdapter(new ClassWriter(0)), 0);
+
+       /*
+        loadClassMethodVisitor.visitVarInsn(Opcodes.ASTORE, 4); // Store input stream in local variable
+        // TODO continue here
+        loadClassMethodVisitor.visitEnd();*/
+        //writer.visitEnd();
+
+    }
+
+    public static void main(String[] args) {
+        final ObfuscatorSettings settings = new ObfuscatorSettings();
+        byte[] key = Base64.getDecoder().decode("lOinGiXyveP7FgS+HqI+0w==");
+        System.out.println(key.length);
+        final IClassPathProvider provider = new JarFileClassPathProvider("C:\\Users\\Master\\IdeaProjects\\Dominion\\Server\\target\\server-1.1.0-jar-with-dependencies.jar");
+        final IFinalizer finalizer = new EncryptedJarFileFinalizer(Opcodes.ASM9 | ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS,
+                "C:\\Users\\Master\\IdeaProjects\\Dominion\\Server\\target\\server-1.1.0-jar-with-dependencies-OBF.jar",
+                AbstractJarFileFinalizer.Method.DEFLATED, AbstractJarFileFinalizer.CompressionLevel.NO_COMPRESSION, new SecureRandom());
+        final ClassPath classPath = provider.provide();
+        finalizer.doFinalize(classPath);
+        //  final IIcarusObfuscator obfuscator = new IcarusObfuscatorImpl(settings, provider);
+        //   obfuscator.obfuscate();
     }
 
 }

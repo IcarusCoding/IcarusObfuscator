@@ -7,7 +7,10 @@ public final class Constants {
     private Constants() {
     }
 
+    public static final int GCM_IV_SIZE = 12;
+    public static final int AES_KEY_SIZE = 32;
     public static final int[] JAR_MAGIC = {0x50, 0x4B};
+    public static final byte[] ICARUS_MAGIC = {73, 67, 65, 82, 85, 83};
     public static final String CLASS_SUFFIX = ".class";
     public static final String MANIFEST = "META-INF/MANIFEST.MF";
     public static final String MAIN_NAME = "main";

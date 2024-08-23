@@ -139,7 +139,7 @@ public final class MethodGenerator {
     }
 
     public void stackPush(int value) {
-        if (value > 0 && value < 6) {
+        if (value >= -1 && value < 6) {
             this.methodVisitor.visitInsn(Opcodes.ICONST_0 + value);
         } else if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
             this.methodVisitor.visitIntInsn(Opcodes.BIPUSH, value);
@@ -199,6 +199,10 @@ public final class MethodGenerator {
 
     public void pushArrayLength() {
         this.methodVisitor.visitInsn(Opcodes.ARRAYLENGTH);
+    }
+
+    public void add(Class<?> type) {
+        this.methodVisitor.visitInsn(Type.getType(type).getOpcode(Opcodes.IADD));
     }
 
     public void ret() {
